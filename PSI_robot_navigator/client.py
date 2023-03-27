@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
 
     #if client_status == Client_status.BEFORE_USERNAME:
-    username = "Client1_Username" 
+    username = "Mnau!" 
     message = username
     client_status = Client_status.USERNAME_SENT
     message += "\a\b"
@@ -58,7 +58,8 @@ if __name__ == "__main__":
             client_status = Client_status.KEY_SENT
 
         elif client_status == Client_status.KEY_SENT:
-            #print("*")
+
+            received_hash = int(response[0:len(response)-2])
 
             hash_code = 0
             for symbol in username:
@@ -67,18 +68,31 @@ if __name__ == "__main__":
             hash_code *= 1000
             hash_code %= 65536
             print("hash1 = " + str(hash_code))
+            hash_code += int(code[0])
+            hash_code %= 65536
+            print("hash2 = " + str(hash_code))
 
+            print("received_hash = " + str(received_hash))
 
             #if(codes[int(response[0:len(response)-2])][1] != code[1]):
-            if int(response[0:len(response)-2]) != hash_code:
+            if received_hash != hash_code:
                 response_status = Response_status.WRONG_CODE
                 response_status.show()
                 break
 
+            hash_code = 0
+            for symbol in username:
+                hash_code += ord(symbol)
+            print("ascii sum = " + str(hash_code))
+            hash_code *= 1000
+            hash_code %= 65536
+            print("hash1 = " + str(hash_code))
             hash_code += int(code[1])
             hash_code %= 65536
             print("hash2 = " + str(hash_code))
-            
+
+            message = str(hash_code)
+
             client_status = Client_status.HASH_SENT
 
         elif client_status == Client_status.HASH_SENT:
@@ -126,8 +140,7 @@ if __name__ == "__main__":
 
             message = "OK" + str(position_x) + " " + str(position_y)
             
-        if client_status == Client_status.KEY_APPROVED:
-            continue
+        # if client_status == Client_status.KEY_APPROVED: continue
 
         message += "\a\b"
         send_message(client_socket, message)

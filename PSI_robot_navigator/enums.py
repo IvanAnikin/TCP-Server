@@ -21,8 +21,11 @@ class Connection_status(enum.Enum):
     BEFORE_USERNAME = 1
     KEY_REQUEST_SENT = 2
     KEY_SHARED = 3
-    KEY_SHARED_2 = 4
-    POSITION_KNOWN = 5
+    LOGGED_IN = 4
+    LOGGED_IN_2 = 5
+    POSITION_KNOWN = 6
+    HASH_SHARED = 7
+    LOGIN_FAILED = 8
     
     def show(self):
         if self == self.BEFORE_USERNAME:
@@ -31,16 +34,23 @@ class Connection_status(enum.Enum):
             print("KEY_REQUEST_SENT")
         if self == self.KEY_SHARED:
             print("KEY_SHARED")
-        if self == self.KEY_SHARED_2:
-            print("KEY_SHARED_2")
+        if self == self.LOGGED_IN:
+            print("LOGGED_IN")
+        if self == self.LOGGED_IN_2:
+            print("LOGGED_IN_2")
         if self == self.POSITION_KNOWN:
             print("POSITION_KNOWN")
+        if self == self.HASH_SHARED:
+            print("HASH_SHARED") 
+        if self == self.LOGIN_FAILED:
+            print("LOGIN_FAILED") 
 
 class Client_status(enum.Enum):
     BEFORE_USERNAME = 1
     USERNAME_SENT = 2
     KEY_SENT = 3
     KEY_APPROVED = 4
+    HASH_SENT = 5
     
     def show(self):
         if self == self.BEFORE_USERNAME:
@@ -51,4 +61,6 @@ class Client_status(enum.Enum):
             print("KEY_SENT")
         if self == self.KEY_APPROVED:
             print("KEY_APPROVED")
+        if self == self.HASH_SENT:
+            print("HASH_SENT")
 

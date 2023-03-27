@@ -23,6 +23,7 @@ def handle_client(conn, addr):
         print(data)
 
         data_state = check_data(data)
+
         if data_state == Response_status.SUCCESS:
 
             data = data[0:len(data)-2]
@@ -50,6 +51,7 @@ def handle_client(conn, addr):
                         
                         for symbol in username:
                             hash_code += ord(symbol)
+                            
                         print("ascii sum = " + str(hash_code))
                         hash_code *= 1000
                         hash_code %= 65536
@@ -69,22 +71,51 @@ def handle_client(conn, addr):
                     print("login failed")
                     conn.send("300 LOGIN FAILED\a\b".encode('ascii'))
                     break
-            elif (connection_status == Connection_status.HASH_SHARED):
+            
+            elif (connection_status == Connection_status.KEY_SHARED):
                 
                 # check hash
-                print("*")
+                print("*\t The client shared his hash code and I'm gonna check it now and confirm or feject the connection\n");
 
-            elif(connection_status == Connection_status.KEY_SHARED):
+                received_hash = int(data)
+
+                hash_code = 0
+                for symbol in username:
+                    hash_code += ord(symbol)
+
+                print("ascii sum = " + str(hash_code))
+                hash_code *= 1000
+                hash_code %= 65536
+                print("hash1 = " + str(hash_code))
+                hash_code += int(code[1])
+                hash_code %= 65536
+                print("hash2 = " + str(hash_code))
+
+                print("received_hash = " + str(received_hash))
+
+                #if(codes[int(response[0:len(response)-2])][1] != code[1]):
+                if received_hash != hash_code:
+                    print("We failed captain\n")
+                    conn.send("300 LOGIN FAILED\a\b".encode('ascii'))
+
+                    response_status = Connection_status.LOGIN_FAILED
+                    response_status.show()
+                    break
+                
+                conn.send("200 OK\a\b".encode('ascii'))
+                connection_status = Connection_status.LOGGED_IN
+
+            elif(connection_status == Connection_status.LOGGED_IN):
                 conn.send("102 MOVE\a\b".encode('ascii'))
-                connection_status = Connection_status.KEY_SHARED_2
+                connection_status = Connection_status.LOGGED_IN_2
 
-            elif(connection_status == Connection_status.KEY_SHARED_2):
+            elif(connection_status == Connection_status.LOGGED_IN_2):
                 conn.send("102 MOVE\a\b".encode('ascii'))
                 connection_status = Connection_status.POSITION_KNOWN
 
             elif(connection_status == Connection_status.POSITION_KNOWN):
                 conn.send("103 TURN LEFT\a\b".encode('ascii'))
-                sleep(5)
+                # time.sleep(5)
             else:
                 print("wrong state")
                 break

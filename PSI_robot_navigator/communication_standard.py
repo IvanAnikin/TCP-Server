@@ -8,7 +8,9 @@ def check_data(data):
     data_len = len(data)
     if(data_len <= 2):
         data_state = Response_status.WRONG_LEN
+        print("Wrong len")
     if(data[data_len-2:data_len] != "\a\b"):
         data_state = Response_status.WRONG_ENDING
+        print("Wrong endinggg")
 
     return data_state
