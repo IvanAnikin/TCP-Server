@@ -32,24 +32,24 @@ def handle_client(conn, addr):
     while True:
 
         # data = conn.recv(1024).decode('ascii')
-        data_pack = receive_packet(conn)
+        data = receive_packet(conn)
 
-        if not data_pack:
+        if not data:
             break
 
         print("Data received: ")
-        print(data_pack)
+        print(data)
+
+        '''
+            messages = data_pack.split("\a\b")
+            data_array = [messages[i] + "\a\b" for i in range(len(messages) - 1)] + [messages[-1]]
+
+            for data in data_array:
+        '''
         
-        messages = data_pack.split("\a\b")
-        data_array = [messages[i] + "\a\b" for i in range(len(messages) - 1)] + [messages[-1]]
+        data_state = check_data(data)
 
-        for data in data_array:
-            
-            print(data)
-
-            # data_state = check_data(data)
-
-            # if data_state == Response_status.SUCCESS:
+        if data_state == Response_status.SUCCESS:
 
             data = data[0:len(data)-2]
 
@@ -64,8 +64,6 @@ def handle_client(conn, addr):
                     conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
                     break
 
-                print("converting this to int:")
-                print(data)
                 if(int(data) not in range(5)):
                     conn.send("303 KEY OUT OF RANGE\a\b".encode('ascii'))
                     break
@@ -103,8 +101,6 @@ def handle_client(conn, addr):
                 # check hash
                 print("*\t The client shared his hash code and I'm gonna check it now and confirm or feject the connection\n");
 
-                print("Converting to int:")
-                print(data)
                 received_hash = int(data)
 
                 hash_code = 0
@@ -251,12 +247,10 @@ def handle_client(conn, addr):
                 print("wrong state")
                 break
 
-            '''
-            else:
-                print("syntax error")
-                conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
-                break
-            '''
+        else:
+            print("syntax error")
+            conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
+            break
 
     conn.close()
 

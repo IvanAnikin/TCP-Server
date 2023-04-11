@@ -26,6 +26,7 @@ class Connection_status(enum.Enum):
     POSITION_KNOWN = 6
     HASH_SHARED = 7
     LOGIN_FAILED = 8
+    AWAITING_MESSAGE = 9
     
     def show(self):
         if self == self.BEFORE_USERNAME:
