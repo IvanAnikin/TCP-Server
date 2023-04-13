@@ -6,7 +6,7 @@ def check_data(data, check_ending=False):
 
     data_state = Response_status.SUCCESS
     data_len = len(data)
-    if(data_len <= 0): # 2
+    if(data_len <= 2): 
         data_state = Response_status.WRONG_LEN
         print("Wrong len")
     
@@ -20,40 +20,19 @@ def check_data(data, check_ending=False):
     return data_state
 
 
-def extract_data_from_string(s):
+def extract_data_from_string(s, x, y):
     words = s.split()
 
     if len(words) == 3:
         if words[0] == "OK":
-            state = 0
             try:
                 number1 = int(words[1])
                 number2 = int(words[2])
-                return state, number1, number2
+                return 0, number1, number2
             except ValueError:
                 raise ValueError("Invalid number format")
         elif words[0] == "RECHARGING":
-            state = 1
-            return state, None, None
+            return 1, x, y
         elif words[0] == "FULL" and words[1] == "POWER":
-            state = 2
-            return state, None, None
+            return 2, x, y
     raise ValueError("Invalid string format")
-    
-'''
-def extract_numbers_from_string(s):
-    # split the string into words
-    words = s.split()
-    
-    # check if the string is in the right format
-    if len(words) != 3 or words[0] != "OK":
-        raise ValueError("Invalid string format")
-    
-    # extract the numbers
-    try:
-        number1 = int(words[1])
-        number2 = int(words[2])
-        return number1, number2, state
-    except ValueError:
-        raise ValueError("Invalid number format")
-        '''

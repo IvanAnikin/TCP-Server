@@ -1,5 +1,7 @@
 import socket
 import threading
+import select
+import random
 
 from enums import *
 from communication_standard import *
@@ -7,6 +9,9 @@ from communication_standard import *
 def receive_packet(conn):
     packet = b""
     while True:
+        ready_to_read, _, _ = select.select([conn], [], [], 1)
+        if not ready_to_read: return False
+        
         chunk = conn.recv(1024) 
         if not chunk:
             raise ConnectionError("Connection closed by remote host")
@@ -29,27 +34,39 @@ def handle_client(conn, addr):
     prev_dir    = 0     #   [ 0: N | 1: E | 2: N | 3: W ]
     dir_check = True
 
+    breakbreak = False
+
     while True:
-
-        # data = conn.recv(1024).decode('ascii')
+        '''
+        ready_to_read, _, _ = select.select([conn], [], [], 1)
+        if not ready_to_read: break
+        '''
         data_pack = receive_packet(conn)
-
-        if not data_pack:
-            break
+        if not data_pack: break
+        if isinstance(data_pack, bool): break
 
         print("Data received: ")
         print(data_pack)
         
         messages = data_pack.split("\a\b")
         data_array = [messages[i] + "\a\b" for i in range(len(messages) - 1)] + [messages[-1]]
+        data_array.pop()
+
+        print("data array:")
+        print(data_array)
 
         for data in data_array:
+            same_pos = False
             
+            print("data inside the array:")
             print(data)
 
-            # data_state = check_data(data)
-
-            # if data_state == Response_status.SUCCESS:
+            data_state = check_data(data)
+            if data_state != Response_status.SUCCESS:
+                print("syntax error")
+                conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
+                breakbreak = True
+                break
 
             data = data[0:len(data)-2]
 
@@ -62,12 +79,15 @@ def handle_client(conn, addr):
                 
                 if not data.isnumeric():
                     conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
+                    print("Synt. error 1")
+                    breakbreak = True
                     break
 
                 print("converting this to int:")
                 print(data)
                 if(int(data) not in range(5)):
                     conn.send("303 KEY OUT OF RANGE\a\b".encode('ascii'))
+                    breakbreak = True
                     break
                 
                 key_found = False
@@ -96,6 +116,7 @@ def handle_client(conn, addr):
                 if not key_found:
                     print("login failed")
                     conn.send("300 LOGIN FAILED\a\b".encode('ascii'))
+                    breakbreak = True
                     break
             
             elif (connection_status == Connection_status.KEY_SHARED):
@@ -123,11 +144,11 @@ def handle_client(conn, addr):
 
                 #if(codes[int(response[0:len(response)-2])][1] != code[1]):
                 if received_hash != hash_code:
-                    print("We failed captain\n")
                     conn.send("300 LOGIN FAILED\a\b".encode('ascii'))
 
                     response_status = Connection_status.LOGIN_FAILED
                     response_status.show()
+                    breakbreak = True
                     break
                 
                 conn.send("200 OK\a\b".encode('ascii'))
@@ -140,9 +161,11 @@ def handle_client(conn, addr):
                 prev_x = pos_x
                 prev_y = pos_y
                 try:
-                    state, pos_x, pos_y = extract_data_from_string(data)
+                    state, pos_x, pos_y = extract_data_from_string(data, pos_x, pos_y)
                 except ValueError:
                     conn.send("301 SYNTAX ERROR\a\b\a\b".encode('ascii'))
+                    print("Synt. error 2")
+                    breakbreak = True
                     break
                 print("state = " + str(state))
                 if(state == 0):
@@ -161,19 +184,24 @@ def handle_client(conn, addr):
                 continue
                 
             elif(connection_status == Connection_status.POSITION_KNOWN):
-                print("POSITION_KNOWN condition")
+                
+                
                 data = str(data)
                 prev_x = pos_x
                 prev_y = pos_y
                 prev_dir = dir
                 
                 try:
-                    state, pos_x, pos_y = extract_data_from_string(data)
+                    state, pos_x, pos_y = extract_data_from_string(data, pos_x, pos_y)
                 except ValueError:
                     conn.send("301 SYNTAX ERROR\a\b\a\b".encode('ascii'))
+                    print("Synt. error 3")
+                    breakbreak = True
                     break
+                    
                 
                 if(state == 0):
+                    
                     if(dir_check):
                         if(prev_x - pos_x == -1):
                             dir = 1
@@ -217,7 +245,15 @@ def handle_client(conn, addr):
                         if(dir == 3): move = 1
                     else:
                         conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
-                        break
+                        print("Synt. error 4")
+                        breakbreak = True
+                        break    
+                    
+                    if(prev_x == pos_x and prev_y == pos_y): 
+                        same_pos = True
+                        move = random.randint(0, 2)
+                        print("same_pos = True")
+                    
                     print("move: " + str(move))
 
                     if(move == 0):      conn.send("102 MOVE\a\b".encode('ascii'))
@@ -234,30 +270,28 @@ def handle_client(conn, addr):
                     print("recharging")
                     if(charging):
                         conn.send("302 LOGIC ERROR\a\b".encode('ascii'))
+                        breakbreak = True
                         break
                     charging = True
                 elif state == 2:
                     print("recharged")
                     if not charging: 
                         conn.send("302 LOGIC ERROR\a\b".encode('ascii'))
+                        breakbreak = True
                         break
                     charging = False
                 
             elif(connection_status == Connection_status.AWAITING_MESSAGE):
                 print("AWAITING_MESSAGE condition")
                 conn.send("106 LOGOUT\a\b".encode('ascii'))
+                breakbreak = True
                 break
             else:
                 print("wrong state")
+                breakbreak = True
                 break
 
-            '''
-            else:
-                print("syntax error")
-                conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
-                break
-            '''
-
+        if(breakbreak): break
     conn.close()
 
 def start_server():

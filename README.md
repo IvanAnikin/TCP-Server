@@ -9,6 +9,11 @@ Navigate to the Sample directory using:
 cd Sample
 ```
 
+Stop nginx if running
+```
+sudo nginx -s stop 
+```
+
 ### Server
 Run the server side using docker:
 ```
