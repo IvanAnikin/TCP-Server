@@ -11,12 +11,15 @@ def check_data(data, check_ending=False):
         print("Wrong len")
     
     
-    if(check_ending and data[data_len-2:data_len] != "\a\b"): # endswith
+    if(check_ending and data[data_len-2:data_len] != "\a\b"): 
         data_state = Response_status.WRONG_ENDING
         print(data)
         print(data[data_len-2:data_len])
         print("Wrong endinggg")
     
+    if data[data_len-3].isspace():
+        data_state = Response_status.WRONG_ENDING
+
     return data_state
 
 
@@ -31,8 +34,9 @@ def extract_data_from_string(s, x, y):
                 return 0, number1, number2
             except ValueError:
                 raise ValueError("Invalid number format")
-        elif words[0] == "RECHARGING":
-            return 1, x, y
-        elif words[0] == "FULL" and words[1] == "POWER":
-            return 2, x, y
+    elif words[0] == "RECHARGING" and len(words) == 1:
+        return 1, x, y
+    elif len(words) == 2 and words[0] == "FULL" and words[1] == "POWER" :
+        return 2, x, y
+        
     raise ValueError("Invalid string format")

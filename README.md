@@ -25,3 +25,7 @@ You can test the server using a client by running:
 ```
 python client.py
 ```
+Or use tester like this
+'''
+
+'''

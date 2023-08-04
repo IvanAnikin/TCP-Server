@@ -6,10 +6,10 @@ import random
 from enums import *
 from communication_standard import *
 
-def receive_packet(conn):
+def receive_packet(conn, timeout_time):
     packet = b""
     while True:
-        ready_to_read, _, _ = select.select([conn], [], [], 1)
+        ready_to_read, _, _ = select.select([conn], [], [], timeout_time)
         if not ready_to_read: return False
         
         chunk = conn.recv(1024) 
@@ -18,7 +18,7 @@ def receive_packet(conn):
         packet += chunk
         if packet.endswith(b"\a\b"):
             break
-    return packet.decode('ascii')
+    return packet.decode('utf-8')
 
 def handle_client(conn, addr):
     print(f"New connection from {addr[0]}:{addr[1]}")
@@ -33,15 +33,16 @@ def handle_client(conn, addr):
     dir         = 0     #   [ 0: N | 1: E | 2: N | 3: W ]
     prev_dir    = 0     #   [ 0: N | 1: E | 2: N | 3: W ]
     dir_check = True
+    charging  = False
+    timeout_time = 1
 
     breakbreak = False
-
+    move_twice = False
+    prev_move = -1
+    move = 0
+    
     while True:
-        '''
-        ready_to_read, _, _ = select.select([conn], [], [], 1)
-        if not ready_to_read: break
-        '''
-        data_pack = receive_packet(conn)
+        data_pack = receive_packet(conn, timeout_time=timeout_time)
         if not data_pack: break
         if isinstance(data_pack, bool): break
 
@@ -52,15 +53,9 @@ def handle_client(conn, addr):
         data_array = [messages[i] + "\a\b" for i in range(len(messages) - 1)] + [messages[-1]]
         data_array.pop()
 
-        print("data array:")
-        print(data_array)
-
         for data in data_array:
             same_pos = False
             
-            print("data inside the array:")
-            print(data)
-
             data_state = check_data(data)
             if data_state != Response_status.SUCCESS:
                 print("syntax error")
@@ -70,14 +65,36 @@ def handle_client(conn, addr):
 
             data = data[0:len(data)-2]
 
+            if(data == "RECHARGING"):
+                if(charging):
+                    conn.send("302 LOGIC ERROR\a\b".encode('ascii'))
+                    breakbreak = True
+                    break
+                timeout_time = 5
+                charging = True
+                continue
+            elif data == "FULLY CHARGED":
+                if not charging:
+                    conn.send("302 LOGIC ERROR\a\b".encode('ascii'))
+                    breakbreak = True
+                    break
+                timeout_time = 1
+                charging = False
+                continue
+            
             if(connection_status == Connection_status.BEFORE_USERNAME):
+                if(len(data) > 18):
+                    conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
+                    breakbreak = True
+                    break
+
                 username = data
                 conn.send("107 KEY REQUEST\a\b".encode('ascii'))
                 connection_status = Connection_status.KEY_REQUEST_SENT
 
             elif(connection_status == Connection_status.KEY_REQUEST_SENT):
                 
-                if not data.isnumeric():
+                if not data.isnumeric() or len(data)>1 or " " in data:
                     conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
                     print("Synt. error 1")
                     breakbreak = True
@@ -121,6 +138,12 @@ def handle_client(conn, addr):
             
             elif (connection_status == Connection_status.KEY_SHARED):
                 
+                if not data.isnumeric() or len(data)>5 or " " in data:
+                    conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
+                    print("Synt. error 6")
+                    breakbreak = True
+                    break
+
                 # check hash
                 print("*\t The client shared his hash code and I'm gonna check it now and confirm or feject the connection\n");
 
@@ -199,9 +222,7 @@ def handle_client(conn, addr):
                     breakbreak = True
                     break
                     
-                
                 if(state == 0):
-                    
                     if(dir_check):
                         if(prev_x - pos_x == -1):
                             dir = 1
@@ -211,7 +232,7 @@ def handle_client(conn, addr):
                             dir = 0
                         elif(prev_y - pos_y == 1):
                             dir = 2
-                        dir_check = False
+                        #dir_check = False
 
                     print("x: " + str(pos_x) + " y: " + str(pos_y) + " dir: " + str(dir))
 
@@ -223,7 +244,14 @@ def handle_client(conn, addr):
                         print("switched to AWAITING_MESSAGE")
                         connection_status = Connection_status.AWAITING_MESSAGE
                         continue
-                    elif(pos_x < 0):
+
+                    if(move_twice):
+                        conn.send("102 MOVE\a\b".encode('ascii'))
+                        move_twice = False
+                        continue
+                    
+                    '''
+                    if(pos_x < 0):
                         if(dir == 0): move = 2 
                         if(dir == 1): move = 0 
                         if(dir == 2): move = 1 
@@ -247,14 +275,77 @@ def handle_client(conn, addr):
                         conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
                         print("Synt. error 4")
                         breakbreak = True
-                        break    
+                        break  
+                    '''
+
+                    if(pos_x < 0 and dir == 1): move = 0
+                    elif(pos_x > 0 and dir == 3): move = 0
+
+                    elif(pos_y < 0 and dir == 0): move = 0
+                    elif(pos_y > 0 and dir == 2): move = 0
                     
-                    if(prev_x == pos_x and prev_y == pos_y): 
+                    elif(pos_x < 0 and dir == 0): move = 2
+                    elif(pos_x < 0 and dir == 2): move = 1
+                    elif(pos_x > 0 and dir == 0): move = 1
+                    elif(pos_x > 0 and dir == 2): move = 2
+
+                    elif(pos_y < 0 and dir == 1): move = 1
+                    elif(pos_y < 0 and dir == 3): move = 2
+                    elif(pos_y > 0 and dir == 1): move = 2
+                    elif(pos_y > 0 and dir == 3): move = 1
+
+                    elif(pos_x < 0 and dir == 3): move = 1
+                    elif(pos_x > 0 and dir == 1): move = 1
+                    elif(pos_y < 0 and dir == 2): move = 1
+                    elif(pos_y > 0 and dir == 0): move = 1
+
+                    else: print("ELSE")
+                    
+                    if(prev_x == pos_x and prev_y == pos_y and prev_move == 0): 
                         same_pos = True
-                        move = random.randint(0, 2)
+                        #move = random.randint(0, 2)
                         print("same_pos = True")
-                    
+
+                        
+                        if(pos_y <= 0 and pos_x >= 0):
+                            if(dir == 0):
+                                move = 1
+                                move_twice = True
+                            elif(dir == 3):
+                                move = 2
+                                move_twice = True
+                            else: move = 0 #print("y <= 0 and x >= 0 ELSE")
+                        elif(pos_y>=0 and pos_x>= 0):
+                            if(dir == 2):
+                                move = 2
+                                move_twice = True
+                            elif(dir == 3):
+                                move = 1
+                                move_twice = True
+                            else: move = 0 #print("y <= 0 and x >= 0 ELSE")
+                        elif(pos_y>=0 and pos_x<= 0):
+                            if(dir == 1):
+                                move = 2
+                                move_twice = True
+                            elif(dir == 2):
+                                move = 1
+                                move_twice = True
+                            else: move = 0 #print("y <= 0 and x >= 0 ELSE")
+                        elif(pos_y<=0 and pos_x<=0):
+                            if(dir == 0):
+                                move = 2
+                                move_twice = True
+                            elif(dir == 1):
+                                move = 1
+                                move_twice = True
+                            else: move = 0 #print("y <= 0 and x >= 0 ELSE")
+                        else:
+                            print("EEEEELLLLLSSSEEE blocked position")
+                
+
                     print("move: " + str(move))
+
+                    prev_move = move
 
                     if(move == 0):      conn.send("102 MOVE\a\b".encode('ascii'))
                     elif(move == 1):
@@ -283,9 +374,32 @@ def handle_client(conn, addr):
                 
             elif(connection_status == Connection_status.AWAITING_MESSAGE):
                 print("AWAITING_MESSAGE condition")
+                words = data.split()
+                if(len(data) > 100):
+                    conn.send("301 SYNTAX ERROR\a\b".encode('ascii'))
+                    print("Synt. error 4")
+                    breakbreak = True
+                    break    
+                if(data == "RECHARGING" or data == "FULLY CHARGED" or words[0] == "OK"):
+                    conn.send("302 LOGIC ERROR\a\b".encode('ascii'))
+                    breakbreak = True
+                    break
+
                 conn.send("106 LOGOUT\a\b".encode('ascii'))
                 breakbreak = True
                 break
+            
+                # try:
+                #     test_x = 0
+                #     test_y = 0
+                #     state, pos_x, pos_y = extract_data_from_string(data, test_x, test_y)
+                # except ValueError:
+                #     conn.send("106 LOGOUT\a\b".encode('ascii'))
+                #     breakbreak = True
+                #     break
+                    
+                
+
             else:
                 print("wrong state")
                 breakbreak = True
